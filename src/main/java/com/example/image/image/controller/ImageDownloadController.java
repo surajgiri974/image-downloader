@@ -1,13 +1,15 @@
-package com.example.image.controller;
+package com.example.image.image.controller;
 
-import com.example.image.downloader.service.ImageService;
+import com.example.image.image.service.ImageService;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/images")
 @RequiredArgsConstructor
@@ -17,6 +19,8 @@ public class ImageDownloadController {
 
     @PostMapping("/download")
     public String downloadImages(@RequestBody DownloadRequest request) {
+        log.info("Starting download for {} images", request.getUrls().size());
+
         imageService.downloadImages(
                 request.getUrls(),
                 request.getUsername(),

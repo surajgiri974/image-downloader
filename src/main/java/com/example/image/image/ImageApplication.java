@@ -1,4 +1,4 @@
-package com.example.image.downloader.image;
+package com.example.image.image;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

@@ -1,4 +1,4 @@
-package com.example.image.downloader.service;
+package com.example.image.image.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
