@@ -71,14 +71,33 @@ public class ImageService {
                             .encodeToString((username + ":" + password).getBytes()))
                     .get();
 
-            Elements links = doc.select("a[href]");
+// Extract hrefs from the nested table
+            Elements links = doc.select("tr td a[href]");
+            List<String> urlsToDownload = new ArrayList<>();
             for (Element link : links) {
                 String href = link.attr("href");
-                if (href.endsWith(".jpg") || href.endsWith(".png") || href.endsWith(".jpeg") || href.endsWith(".gif")) {
-                    String fullUrl = folderUrl + (folderUrl.endsWith("/") ? "" : "/") + href;
-                    imageUrls.add(fullUrl);
+                if (!href.endsWith(".css") && !href.endsWith(".js")) { // skip CSS/JS
+                    String fullUrl = href.startsWith("http") ? href : folderUrl + (folderUrl.endsWith("/") ? "" : "/") + href.replaceFirst("^/", "");
+                    urlsToDownload.add(fullUrl);
                 }
             }
+            for (String imagePageUrl : urlsToDownload) {
+                Document imagePage = Jsoup.connect(imagePageUrl)
+                        .userAgent("Mozilla/5.0")
+                        .timeout(10000)
+                        .header("Authorization", "Basic " + java.util.Base64.getEncoder()
+                                .encodeToString((username + ":" + password).getBytes()))
+                        .get();
+
+                // Find <img> on that page
+                Element img = imagePage.selectFirst("img");
+                if (img != null) {
+                    String imgUrl = img.absUrl("src"); // absolute URL
+                    downloadSingleImage(imgUrl, username, password, folderUrl);
+                }
+            }
+
+
         } catch (IOException e) {
             log.error("Error fetching image URLs from folder", e);
         }
@@ -92,4 +111,35 @@ public class ImageService {
         List<String> urls = fetchImageUrlsFromFolder(folderUrl, username, password);
         downloadImages(urls, username, password, targetDir);
     }
+
+    private void downloadSingleImage(String imageUrl, String username, String password, String targetDir) {
+        try {
+            BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
+            credsProvider.setCredentials(null, new UsernamePasswordCredentials(username, password.toCharArray()));
+
+            try (CloseableHttpClient client = HttpClients.custom()
+                    .setDefaultCredentialsProvider(credsProvider)
+                    .build()) {
+
+                HttpGet request = new HttpGet(imageUrl);
+                client.execute(request, response -> {
+                    String contentType = response.getEntity().getContentType();
+                    if (!contentType.startsWith("image/")) return null; // skip non-images
+
+                    byte[] data = EntityUtils.toByteArray(response.getEntity());
+                    String fileName = new File(new URL(imageUrl).getPath()).getName();
+                    File outputFile = new File(targetDir, fileName);
+
+                    try (FileOutputStream fos = new FileOutputStream(outputFile)) {
+                        fos.write(data);
+                        System.out.println("Downloaded: " + fileName);
+                    }
+                    return null;
+                });
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 }
