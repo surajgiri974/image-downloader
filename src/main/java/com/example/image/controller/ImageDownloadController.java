@@ -1,6 +1,9 @@
 package com.example.image.controller;
+
 import com.example.image.downloader.service.ImageService;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -10,13 +13,11 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ImageDownloadController {
 
-    private final ImageService downloadService;
+    private final ImageService imageService;
 
     @PostMapping("/download")
-    public String downloadImages(
-            @RequestBody ImageDownloadRequest request
-    ) {
-        downloadService.downloadImages(
+    public String downloadImages(@RequestBody DownloadRequest request) {
+        imageService.downloadImages(
                 request.getUrls(),
                 request.getUsername(),
                 request.getPassword(),
@@ -25,19 +26,17 @@ public class ImageDownloadController {
         return "Download started!";
     }
 
-    public static class ImageDownloadRequest {
+    /**
+     * Request body class
+     */
+    @Getter
+    @Setter
+    public static class DownloadRequest {
+        // Getters and Setters
         private List<String> urls;
         private String username;
         private String password;
         private String targetDir;
 
-        public List<String> getUrls() { return urls; }
-        public void setUrls(List<String> urls) { this.urls = urls; }
-        public String getUsername() { return username; }
-        public void setUsername(String username) { this.username = username; }
-        public String getPassword() { return password; }
-        public void setPassword(String password) { this.password = password; }
-        public String getTargetDir() { return targetDir; }
-        public void setTargetDir(String targetDir) { this.targetDir = targetDir; }
     }
 }
