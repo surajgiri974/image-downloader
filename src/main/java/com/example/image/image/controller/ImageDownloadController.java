@@ -17,12 +17,23 @@ public class ImageDownloadController {
 
     private final ImageService imageService;
 
+    // List image URLs
+    @PostMapping("/list")
+    public List<String> listImages(@RequestBody DownloadRequest request) {
+        log.info("Fetching image URLs from page: {}", request.getPageUrl());
+        return imageService.fetchImageUrlsFromPage(
+                request.getPageUrl(),
+                request.getUsername(),
+                request.getPassword()
+        );
+    }
+
+    // Download all images to local folder
     @PostMapping("/download")
     public String downloadImages(@RequestBody DownloadRequest request) {
-        log.info("Starting download for {} images", request.getUrls().size());
-
-        imageService.downloadImages(
-                request.getUrls(),
+        log.info("Downloading images from page: {}", request.getPageUrl());
+        imageService.downloadImagesFromPage(
+                request.getPageUrl(),
                 request.getUsername(),
                 request.getPassword(),
                 request.getTargetDir()
@@ -30,17 +41,13 @@ public class ImageDownloadController {
         return "Download started!";
     }
 
-    /**
-     * Request body class
-     */
+    // Request body class
     @Getter
     @Setter
     public static class DownloadRequest {
-        // Getters and Setters
-        private List<String> urls;
+        private String pageUrl;
         private String username;
         private String password;
-        private String targetDir;
-
+        private String targetDir; // Required only for download
     }
 }

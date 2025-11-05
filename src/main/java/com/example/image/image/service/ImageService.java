@@ -17,16 +17,46 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 @Slf4j
 @Service
 public class ImageService {
 
-    /**
-     * Download images given a list of URLs
-     */
+    // Fetch image URLs from a page with table structure
+    public List<String> fetchImageUrlsFromPage(String pageUrl, String username, String password) {
+        List<String> imageUrls = new ArrayList<>();
+        try {
+            Document doc = Jsoup.connect(pageUrl)
+                    .userAgent("Mozilla/5.0")
+                    .timeout(15000)
+                    .header("Authorization", "Basic " + Base64.getEncoder()
+                            .encodeToString((username + ":" + password).getBytes()))
+                    .get();
+
+            // Select all <a> tags inside table cells recursively
+            Elements links = doc.select("td a[href]");
+            for (Element link : links) {
+                String href = link.attr("href");
+                if (href.matches("(?i).*\\.(jpg|jpeg|png|gif)$")) {
+                    // Encode spaces and special chars
+                    href = href.replace(" ", "%20");
+                    String fullUrl = href.startsWith("http") ? href :
+                            pageUrl + (pageUrl.endsWith("/") ? "" : "/") + href.replaceFirst("^/", "");
+                    imageUrls.add(fullUrl);
+                }
+            }
+        } catch (IOException e) {
+            log.error("Error fetching image URLs", e);
+        }
+        return imageUrls;
+    }
+
+    // Download list of image URLs
     public void downloadImages(List<String> urls, String username, String password, String targetDir) {
         try {
             BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
@@ -40,10 +70,8 @@ public class ImageService {
                     HttpGet request = new HttpGet(imageUrl);
                     client.execute(request, response -> {
                         byte[] data = EntityUtils.toByteArray(response.getEntity());
-
                         String fileName = new File(new URL(imageUrl).getPath()).getName();
                         File outputFile = new File(targetDir, fileName);
-
                         try (FileOutputStream fos = new FileOutputStream(outputFile)) {
                             fos.write(data);
                             log.info("Downloaded: {}", fileName);
@@ -57,89 +85,9 @@ public class ImageService {
         }
     }
 
-    /**
-     * Fetch all image URLs from a folder URL (if directory listing is enabled)
-     */
-    public List<String> fetchImageUrlsFromFolder(String folderUrl, String username, String password) {
-        List<String> imageUrls = new ArrayList<>();
-        try {
-            // Jsoup connection with basic auth
-            Document doc = Jsoup.connect(folderUrl)
-                    .userAgent("Mozilla/5.0")
-                    .timeout(10000)
-                    .header("Authorization", "Basic " + java.util.Base64.getEncoder()
-                            .encodeToString((username + ":" + password).getBytes()))
-                    .get();
-
-// Extract hrefs from the nested table
-            Elements links = doc.select("tr td a[href]");
-            List<String> urlsToDownload = new ArrayList<>();
-            for (Element link : links) {
-                String href = link.attr("href");
-                if (!href.endsWith(".css") && !href.endsWith(".js")) { // skip CSS/JS
-                    String fullUrl = href.startsWith("http") ? href : folderUrl + (folderUrl.endsWith("/") ? "" : "/") + href.replaceFirst("^/", "");
-                    urlsToDownload.add(fullUrl);
-                }
-            }
-            for (String imagePageUrl : urlsToDownload) {
-                Document imagePage = Jsoup.connect(imagePageUrl)
-                        .userAgent("Mozilla/5.0")
-                        .timeout(10000)
-                        .header("Authorization", "Basic " + java.util.Base64.getEncoder()
-                                .encodeToString((username + ":" + password).getBytes()))
-                        .get();
-
-                // Find <img> on that page
-                Element img = imagePage.selectFirst("img");
-                if (img != null) {
-                    String imgUrl = img.absUrl("src"); // absolute URL
-                    downloadSingleImage(imgUrl, username, password, folderUrl);
-                }
-            }
-
-
-        } catch (IOException e) {
-            log.error("Error fetching image URLs from folder", e);
-        }
-        return imageUrls;
-    }
-
-    /**
-     * Convenience method: download all images from a folder URL
-     */
-    public void downloadImagesFromFolder(String folderUrl, String username, String password, String targetDir) {
-        List<String> urls = fetchImageUrlsFromFolder(folderUrl, username, password);
+    // Fetch and download all images from a page
+    public void downloadImagesFromPage(String pageUrl, String username, String password, String targetDir) {
+        List<String> urls = fetchImageUrlsFromPage(pageUrl, username, password);
         downloadImages(urls, username, password, targetDir);
     }
-
-    private void downloadSingleImage(String imageUrl, String username, String password, String targetDir) {
-        try {
-            BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
-            credsProvider.setCredentials(null, new UsernamePasswordCredentials(username, password.toCharArray()));
-
-            try (CloseableHttpClient client = HttpClients.custom()
-                    .setDefaultCredentialsProvider(credsProvider)
-                    .build()) {
-
-                HttpGet request = new HttpGet(imageUrl);
-                client.execute(request, response -> {
-                    String contentType = response.getEntity().getContentType();
-                    if (!contentType.startsWith("image/")) return null; // skip non-images
-
-                    byte[] data = EntityUtils.toByteArray(response.getEntity());
-                    String fileName = new File(new URL(imageUrl).getPath()).getName();
-                    File outputFile = new File(targetDir, fileName);
-
-                    try (FileOutputStream fos = new FileOutputStream(outputFile)) {
-                        fos.write(data);
-                        System.out.println("Downloaded: " + fileName);
-                    }
-                    return null;
-                });
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
 }
