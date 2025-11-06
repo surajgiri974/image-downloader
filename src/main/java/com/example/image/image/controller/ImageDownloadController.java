@@ -17,23 +17,12 @@ public class ImageDownloadController {
 
     private final ImageService imageService;
 
-    // List image URLs
-    @PostMapping("/list")
-    public List<String> listImages(@RequestBody DownloadRequest request) {
-        log.info("Fetching image URLs from page: {}", request.getPageUrl());
-        return imageService.fetchImageUrlsFromPage(
-                request.getPageUrl(),
-                request.getUsername(),
-                request.getPassword()
-        );
-    }
-
     // Download all images to local folder
     @PostMapping("/download")
     public String downloadImages(@RequestBody DownloadRequest request) {
-        log.info("Downloading images from page: {}", request.getPageUrl());
-        imageService.downloadImagesFromPage(
-                request.getPageUrl(),
+        log.info("Downloading images from page: {}", request.getUrls());
+        imageService.downloadProtectedImages(
+                request.getUrls(),
                 request.getUsername(),
                 request.getPassword(),
                 request.getTargetDir()
@@ -45,7 +34,7 @@ public class ImageDownloadController {
     @Getter
     @Setter
     public static class DownloadRequest {
-        private String pageUrl;
+        private List<String> urls;
         private String username;
         private String password;
         private String targetDir; // Required only for download
